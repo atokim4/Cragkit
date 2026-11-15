@@ -9,7 +9,7 @@ from .context import render_context
 from .contracts import Facet
 from .contracts._validation import MAX_SAFE_NUMBER, identity, integer, native_json, text
 from .contracts.results import digest
-from .errors import InvalidRequest
+from .errors import InvalidRequest, QueryBindingMismatch
 
 
 def _shape(value: Any, keys: set[str]) -> dict[str, Any]:
@@ -31,8 +31,6 @@ def _policy(value: Any, query: str) -> dict[str, Any]:
     identity(policy_id + ':' + version)
     bound = _string(value['query_sha256'])
     digest(bound)
-    if bound != hashlib.sha256(query.encode('utf-8')).hexdigest():
-        raise ValueError()
     raw_facets = value['facets']
     if type(raw_facets) is not list or not 1 <= len(raw_facets) <= 32:
         raise ValueError()
@@ -76,6 +74,9 @@ def _policy(value: Any, query: str) -> dict[str, Any]:
                 raise ValueError()
         facets.append(dict(facet_id=fid, question=question, required=facet['required'],
                            absence=facet['absence'], anchors=anchors))
+    # Shape first, then the binding, so a malformed policy stays invalid_request in both runtimes.
+    if bound != hashlib.sha256(query.encode('utf-8')).hexdigest():
+        raise QueryBindingMismatch()
     return dict(policy_id=policy_id, version=version, facets=facets)
 
 
