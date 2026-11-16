@@ -39,7 +39,7 @@ def _policy(value: Any, query: str) -> dict[str, Any]:
     anchor_count = anchor_bytes = 0
     for raw in raw_facets:
         facet = _shape(raw, {'facet_id', 'question', 'required', 'absence', 'anchors'})
-        fid, question = _string(facet['facet_id']), _string(facet['question'], 2048)
+        fid, question = identity(_string(facet['facet_id'])), _string(facet['question'], 2048)
         if fid in facet_ids or type(facet['required']) is not bool or facet['absence'] not in ('missing', 'unknown'):
             raise ValueError()
         facet_ids.add(fid)
@@ -50,8 +50,9 @@ def _policy(value: Any, query: str) -> dict[str, Any]:
         for raw_anchor in facet['anchors']:
             anchor = _shape(raw_anchor, {'claim_id', 'collection', 'document_id', 'revision_id',
                                          'source_sha256', 'start_byte', 'end_byte', 'text'})
-            copied = {key: _string(anchor[key]) for key in
-                      ('claim_id', 'collection', 'document_id', 'revision_id', 'source_sha256')}
+            copied = {key: identity(_string(anchor[key])) for key in
+                      ('claim_id', 'collection', 'document_id', 'revision_id')}
+            copied['source_sha256'] = _string(anchor['source_sha256'])
             digest(copied['source_sha256'])
             start, end = integer(anchor['start_byte']), integer(anchor['end_byte'])
             if (type(start) is not int or type(end) is not int
